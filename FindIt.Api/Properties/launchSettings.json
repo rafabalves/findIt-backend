@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "FindIt.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64529;http://localhost:64530"
+    },
+    "FindIt.Api (Outlook pessoal - teste)": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AzureAd__TenantId": "9188040d-6c67-4c5b-b112-36a304b66dad",
+        "FindItAuth__PersonalTestMode": "true"
+      },
+      "applicationUrl": "https://localhost:64529;http://localhost:64530"
+    }
+  }
+}

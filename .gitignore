@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+.tools/
+*.user
+appsettings.Development.json
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
+*.db
+*.sqlite
+TCC___Rafael.pdf
+diagram-page-26.png
