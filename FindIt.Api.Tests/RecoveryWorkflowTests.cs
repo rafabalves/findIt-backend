@@ -151,7 +151,7 @@ public sealed class RecoveryWorkflowTests
         await using var fixture = await Fixture.CreateAsync();
         var service = new CurrentUserService(fixture.Db, new FixedClock(FridayApproval),
             new ConfigurationBuilder().Build(), new TestHostEnvironment());
-        var tenantId = Guid.NewGuid();
+        var tenantId = Guid.Parse("e298359b-9b54-45c0-9bb7-690913b34cf8");
         var objectId = Guid.NewGuid();
         var account = Principal(tenantId, objectId, "aluno@discente.uemg.br");
 
@@ -161,14 +161,20 @@ public sealed class RecoveryWorkflowTests
         Assert.Equal(user.Id, sameUser.Id);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetOrCreateAsync(
             Principal(tenantId, Guid.NewGuid(), "pessoa@outlook.com"), default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetOrCreateAsync(
+            Principal(Guid.NewGuid(), Guid.NewGuid(), "aluno@discente.uemg.br"), default));
     }
 
     [Fact]
-    public async Task PersonalAccountRequiresDevelopmentTestModeAndConsumerTenant()
+    public async Task AnyMicrosoftAccountRequiresDevelopmentTestMode()
     {
         await using var fixture = await Fixture.CreateAsync();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(
-            new Dictionary<string, string?> { ["FindItAuth:PersonalTestMode"] = "true" }).Build();
+            new Dictionary<string, string?>
+            {
+                ["FindItAuth:AllowAnyMicrosoftAccountForTesting"] = "true",
+                ["AzureAd:TenantId"] = "common"
+            }).Build();
         var consumerTenant = Guid.Parse("9188040d-6c67-4c5b-b112-36a304b66dad");
         var personal = Principal(consumerTenant, Guid.NewGuid(), "pessoa@outlook.com");
 
@@ -182,9 +188,9 @@ public sealed class RecoveryWorkflowTests
             new FixedClock(FridayApproval), configuration, new TestHostEnvironment());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             productionService.GetOrCreateAsync(personal, default));
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            developmentService.GetOrCreateAsync(
-                Principal(Guid.NewGuid(), Guid.NewGuid(), "pessoa@outlook.com"), default));
+        var otherOrganization = await developmentService.GetOrCreateAsync(
+            Principal(Guid.NewGuid(), Guid.NewGuid(), "pessoa@outro-tenant.com"), default);
+        Assert.Equal("pessoa@outro-tenant.com", otherOrganization.Email);
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment

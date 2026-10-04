@@ -16,23 +16,31 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+var frontendOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (frontendOrigins.Length > 0)
+{
+    builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
+        policy.WithOrigins(frontendOrigins).AllowAnyHeader().AllowAnyMethod()));
+}
 var authentication = builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme);
 var configuredTenantId = builder.Configuration["AzureAd:TenantId"];
 var configuredApiClientId = builder.Configuration["AzureAd:ClientId"];
-var tenantIsConfigured = Guid.TryParse(configuredTenantId, out var allowedTenantId)
-    && allowedTenantId != Guid.Empty;
+var uemgTenantId = Guid.Parse("e298359b-9b54-45c0-9bb7-690913b34cf8");
+var allowAnyMicrosoftTenantForTesting = builder.Configuration.GetValue<bool>(
+    "FindItAuth:AllowAnyMicrosoftAccountForTesting");
+if (allowAnyMicrosoftTenantForTesting && (!builder.Environment.IsDevelopment()
+    || !string.Equals(configuredTenantId, "common", StringComparison.OrdinalIgnoreCase)))
+{
+    throw new InvalidOperationException(
+        "O teste com qualquer conta Microsoft exige Development e AzureAd:TenantId=common.");
+}
+var tenantIsConfigured = allowAnyMicrosoftTenantForTesting
+    || Guid.TryParse(configuredTenantId, out var institutionalTenantId)
+        && institutionalTenantId == uemgTenantId;
 var apiIsConfigured = Guid.TryParse(configuredApiClientId, out var apiClientId)
     && apiClientId != Guid.Empty;
 var webIsConfigured = Guid.TryParse(builder.Configuration["FindItAuth:WebClientId"],
     out var allowedWebClientId) && allowedWebClientId != Guid.Empty;
-var personalTestMode = builder.Configuration.GetValue<bool>("FindItAuth:PersonalTestMode");
-var consumerTenantId = Guid.Parse("9188040d-6c67-4c5b-b112-36a304b66dad");
-if (personalTestMode && (!builder.Environment.IsDevelopment()
-    || !tenantIsConfigured || allowedTenantId != consumerTenantId))
-{
-    throw new InvalidOperationException(
-        "O teste com contas pessoais exige Development e o locatário Microsoft consumers.");
-}
 builder.Services.AddSwaggerGen(options =>
 {
     if (!tenantIsConfigured || !apiIsConfigured || !webIsConfigured)
@@ -43,7 +51,7 @@ builder.Services.AddSwaggerGen(options =>
     // O primeiro consentimento de uma API multidiretório usa as permissões
     // delegadas já declaradas no registro FindIt Web.
     var consentScope = $"api://{apiClientId}/.default";
-    var authority = $"https://login.microsoftonline.com/{allowedTenantId}/oauth2/v2.0/";
+    var authority = $"https://login.microsoftonline.com/{configuredTenantId}/oauth2/v2.0/";
     options.AddSecurityDefinition("FindIt Web", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.OAuth2,
@@ -77,13 +85,14 @@ else
 }
 builder.Services.AddAuthorization(options =>
 {
-    var institutionalPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+    var accessPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
         .RequireAuthenticatedUser()
         .RequireAssertion(context => tenantIsConfigured && apiIsConfigured && webIsConfigured
-            && InstitutionalTokenValidator.IsAllowed(context.User, allowedTenantId, allowedWebClientId))
+            && FindItTokenValidator.IsAllowed(context.User, uemgTenantId,
+                allowedWebClientId, allowAnyMicrosoftTenantForTesting))
         .Build();
-    options.DefaultPolicy = institutionalPolicy;
-    options.FallbackPolicy = institutionalPolicy;
+    options.DefaultPolicy = accessPolicy;
+    options.FallbackPolicy = accessPolicy;
 });
 builder.Services.AddScoped<ItemQueryService>();
 builder.Services.AddScoped<RequestExpirationService>();
@@ -124,6 +133,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseRouting();
+if (frontendOrigins.Length > 0)
+{
+    app.UseCors("Frontend");
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -8,15 +8,15 @@ namespace FindIt.Api.Services;
 public sealed class CurrentUserService(
     FindItDbContext db, TimeProvider clock, IConfiguration configuration, IHostEnvironment environment)
 {
-    private static readonly Guid ConsumerTenantId =
-        Guid.Parse("9188040d-6c67-4c5b-b112-36a304b66dad");
+    private static readonly Guid UemgTenantId =
+        Guid.Parse("e298359b-9b54-45c0-9bb7-690913b34cf8");
 
     public async Task<User> GetOrCreateAsync(
         ClaimsPrincipal principal, CancellationToken cancellationToken)
     {
         if (principal.Identity?.IsAuthenticated != true)
         {
-            throw new UnauthorizedAccessException("Autenticação institucional necessária.");
+            throw new UnauthorizedAccessException("Autenticação Microsoft necessária.");
         }
 
         var tenantId = ParseClaim(principal, "tid",
@@ -80,7 +80,7 @@ public sealed class CurrentUserService(
                 return value;
             }
         }
-        throw new UnauthorizedAccessException("O token não contém o identificador institucional esperado.");
+        throw new UnauthorizedAccessException("O token não contém o identificador de conta esperado.");
     }
 
     private static bool IsInstitutionalEmail(string email) =>
@@ -88,9 +88,10 @@ public sealed class CurrentUserService(
         || email.EndsWith("@docente.uemg.br", StringComparison.OrdinalIgnoreCase);
 
     private bool IsAllowedEmail(string email, Guid tenantId) =>
-        IsInstitutionalEmail(email)
+        (tenantId == UemgTenantId && IsInstitutionalEmail(email))
         || (environment.IsDevelopment()
-            && configuration.GetValue<bool>("FindItAuth:PersonalTestMode")
-            && tenantId == ConsumerTenantId
+            && configuration.GetValue<bool>("FindItAuth:AllowAnyMicrosoftAccountForTesting")
+            && string.Equals(configuration["AzureAd:TenantId"], "common",
+                StringComparison.OrdinalIgnoreCase)
             && email.Contains('@'));
 }

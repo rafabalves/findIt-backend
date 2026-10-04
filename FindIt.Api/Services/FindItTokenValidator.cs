@@ -2,15 +2,18 @@ using System.Security.Claims;
 
 namespace FindIt.Api.Services;
 
-public static class InstitutionalTokenValidator
+public static class FindItTokenValidator
 {
-    public static bool IsAllowed(ClaimsPrincipal principal, Guid tenantId, Guid webClientId)
+    public static bool IsAllowed(
+        ClaimsPrincipal principal, Guid institutionalTenantId, Guid webClientId,
+        bool allowAnyMicrosoftTenantForTesting = false)
     {
         if (principal.Identity?.IsAuthenticated != true
-            || tenantId == Guid.Empty || webClientId == Guid.Empty
+            || institutionalTenantId == Guid.Empty || webClientId == Guid.Empty
             || !Guid.TryParse(FindClaim(principal, "tid",
                 "http://schemas.microsoft.com/identity/claims/tenantid"), out var tokenTenantId)
-            || tokenTenantId != tenantId
+            || tokenTenantId == Guid.Empty
+            || (!allowAnyMicrosoftTenantForTesting && tokenTenantId != institutionalTenantId)
             || !Guid.TryParse(FindClaim(principal, "azp", "appid",
                 "http://schemas.microsoft.com/identity/claims/appid"), out var tokenClientId)
             || tokenClientId != webClientId)

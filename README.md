@@ -13,7 +13,7 @@ API ASP.NET Core 10 para o sistema de achados e perdidos FindIt da UEMG Divinóp
 - Expiração automática de aprovações vencidas, ao iniciar a API e a cada minuto.
 - Testes de regras de negócio com banco SQLite em memória.
 
-A primeira migration foi aplicada ao MySQL local em 27/09/2026. Os registros FindIt API e FindIt Web foram criados no diretório Entra pessoal do desenvolvedor. O perfil principal do backend valida tokens da UEMG destinados à API, com o escopo `access_as_user` e o FindIt Web como cliente. O perfil de desenvolvimento para contas pessoais foi validado em 28/09/2026: o Swagger obteve autorização e `GET /api/me` retornou HTTP 200, criando o usuário local. O teste institucional ainda depende de consentimento da UEMG. As consultas públicas funcionam sem token; as rotas autenticadas exigem um token válido.
+A primeira migration foi aplicada ao MySQL local em 27/09/2026. Os registros FindIt API e FindIt Web foram criados no diretório Entra pessoal do desenvolvedor. O perfil principal do backend continua restrito ao tenant da UEMG, ao escopo `access_as_user` e ao cliente FindIt Web. A UEMG informou em 04/10/2026 que não autoriza aplicativos experimentais; portanto, esse perfil não pode ser validado com usuários institucionais neste TCC. O perfil de desenvolvimento aceita contas Microsoft pessoais e organizacionais para testes. Em 04/10/2026, o login com conta Microsoft pessoal e a rota `GET /api/me` foram confirmados no perfil de teste; contas organizacionais ainda não foram validadas. As consultas públicas funcionam sem token; as rotas autenticadas exigem um token válido.
 
 ## Requisitos
 
@@ -60,13 +60,13 @@ O arquivo `database/initial.sql` permite inspecionar a estrutura gerada. Use **a
 
 O registro **FindIt API** tem ID de aplicativo `a66cb6cf-367c-4568-b267-8e9f475a99bb`, URI `api://a66cb6cf-367c-4568-b267-8e9f475a99bb` e escopo `access_as_user`. O registro **FindIt Web** tem ID de aplicativo `b260a802-31c8-4321-9f4e-4b41ab44581f` e permissão delegada para esse escopo. Ambos pertencem ao diretório pessoal `abdd61f9-f485-42eb-8bbd-07609f52d09a`, que **não é** o diretório da UEMG. Esses IDs não são segredos.
 
-O `AzureAd:ClientId` da API, `AzureAd:TenantId` da UEMG e `FindItAuth:WebClientId` estão em `appsettings.json`. A URL de login institucional e o erro de consentimento exibidos em 28/09/2026 indicam o locatário UEMG `e298359b-9b54-45c0-9bb7-690913b34cf8`. O middleware Microsoft valida assinatura, emissor e público do token; a política de autorização exige esse `tid`, o escopo `access_as_user` e o cliente FindIt Web por `azp` (token v2) ou `appid` (token v1). A identificação local usa o par `tid` + `oid` e aceita endereços `@discente.uemg.br` ou `@docente.uemg.br`. O fluxo institucional ainda precisa ser testado com um token real; não envie tokens no chat ou em issues.
+O `AzureAd:ClientId` da API, `AzureAd:TenantId` da UEMG e `FindItAuth:WebClientId` estão em `appsettings.json`. A URL de login institucional e o erro de consentimento exibidos em 28/09/2026 indicam o locatário UEMG `e298359b-9b54-45c0-9bb7-690913b34cf8`. O middleware Microsoft valida assinatura, emissor e público do token; a política de autorização exige esse `tid`, o escopo `access_as_user` e o cliente FindIt Web por `azp` (token v2) ou `appid` (token v1). A identificação local usa o par `tid` + `oid` e aceita endereços `@discente.uemg.br` ou `@docente.uemg.br`. A validação institucional real depende de uma decisão futura da UEMG; não envie tokens no chat ou em issues.
 
 ### Teste de login pelo Swagger
 
 No registro **FindIt Web**, em **Autenticação**, adicione a plataforma **Aplicativo de página única (SPA)** com a URI de redirecionamento `https://localhost:64529/swagger/oauth2-redirect.html`. O Swagger da API usa o fluxo de código de autorização com PKCE. Para o primeiro consentimento no diretório da UEMG, solicita `api://a66cb6cf-367c-4568-b267-8e9f475a99bb/.default` com `prompt=consent`; a permissão delegada configurada no FindIt Web continua sendo `access_as_user`, e o backend exige esse valor no token. Não crie um segredo de cliente para esse teste.
 
-Depois de iniciar a API no perfil `FindIt.Api` do Visual Studio, abra `https://localhost:64529/swagger`, clique em **Authorize**, selecione o escopo e entre com a conta institucional. Em seguida, execute `GET /api/me`. A primeira autenticação ainda pode ser bloqueada pela política de consentimento da UEMG; nesse caso, será necessário envolver a TI. Confirme o `tid` apenas localmente no token recebido e não compartilhe o token completo.
+O perfil `FindIt.Api` do Visual Studio preserva essa configuração institucional. Em 04/10/2026, a UEMG negou a autorização de aplicativos experimentais, então o login institucional está bloqueado. Para testar as funcionalidades, use o perfil de teste descrito abaixo.
 
 Em 28/09/2026, a primeira tentativa retornou `AADSTS650052`: o diretório da UEMG ainda não tinha uma entidade de serviço da FindIt API. Para habilitar o consentimento conjunto dos dois registros, abra **FindIt API → Manifesto**, localize `api.knownClientApplications` e adicione o ID do FindIt Web:
 
@@ -74,25 +74,41 @@ Em 28/09/2026, a primeira tentativa retornou `AADSTS650052`: o diretório da UEM
 "knownClientApplications": ["b260a802-31c8-4321-9f4e-4b41ab44581f"]
 ```
 
-Salve o manifesto e tente entrar novamente. Essa configuração permite que a Microsoft crie as entidades de serviço da API e do cliente no mesmo fluxo de consentimento. A permissão `access_as_user` deve estar em **FindIt Web → Permissões de APIs**; a entrada equivalente em **FindIt API → Permissões de APIs**, que solicitava o escopo da própria API, foi identificada como desnecessária. O teste do Swagger foi ajustado para o fluxo inicial de consentimento após o mesmo erro persistir.
+Essa configuração foi usada na tentativa de consentimento conjunto, para criar as entidades de serviço da API e do cliente. A permissão `access_as_user` fica em **FindIt Web → Permissões de APIs**; a entrada equivalente em **FindIt API → Permissões de APIs**, que solicitava o escopo da própria API, foi identificada como desnecessária. O teste do Swagger foi ajustado para o fluxo inicial de consentimento após o mesmo erro persistir.
 
-Depois dessas correções, o fluxo chegou à tela **Necessidade de aprovação de administrador** para FindIt Web (editor não verificado). O bloqueio agora é a política de consentimento do diretório da UEMG: alguém com as permissões administrativas adequadas na UEMG precisa avaliar e, se aprovar, conceder consentimento aos registros FindIt Web e FindIt API. A conta administradora do diretório pessoal não tem autoridade no diretório UEMG. Até essa aprovação, o login institucional real e `GET /api/me` permanecem sem teste de ponta a ponta. O desenvolvimento local das demais funções pode continuar.
+Depois dessas correções, o fluxo chegou à tela **Necessidade de aprovação de administrador** para FindIt Web (editor não verificado). A UEMG respondeu que não concede acesso a aplicativos experimentais; a conta administradora do diretório pessoal não tem autoridade no diretório UEMG. O código do fluxo institucional permanece, mas não há teste de ponta a ponta com contas da universidade.
 
-### Teste com conta Outlook pessoal
+### Teste com contas Microsoft pessoais e organizacionais
 
-Esse teste verifica a autenticação, a emissão do token para a FindIt API e o acesso a `GET /api/me`. Não substitui a aprovação necessária para contas da UEMG. Para configurar outro ambiente, faça no portal Entra:
+Esse perfil usa a autoridade Microsoft `/common`, que permite contas pessoais e de trabalho/estudo de outros tenants. A API continua exigindo um token de acesso válido para a FindIt API, o escopo `access_as_user` e o cliente FindIt Web. Cada tenant organizacional pode exigir consentimento administrativo próprio; o perfil de teste não contorna a negativa da UEMG. Para configurar outro ambiente, faça no portal Entra:
 
 1. Em **FindIt API → Autenticação → Tipos de conta com suporte**, selecione **Qualquer locatário de ID do Entra + Contas Pessoais da Microsoft**. Se o portal solicitar a versão do token, em **Manifesto → `api.requestedAccessTokenVersion`** defina `2` e salve. A API que aceita contas pessoais deve emitir tokens de acesso v2.
 2. Faça a mesma mudança de **Tipos de conta com suporte** em **FindIt Web**. Mantenha a URI de redirecionamento SPA `https://localhost:64529/swagger/oauth2-redirect.html` e a permissão delegada `FindIt API / access_as_user` no FindIt Web.
-3. No Visual Studio, pare a execução anterior (**Shift+F5**), selecione na lista ao lado do botão de execução o perfil **FindIt.Api (Outlook pessoal - teste)** e inicie a API novamente. Os dois perfis usam a mesma porta; uma instância institucional ainda aberta continuará enviando o login para a UEMG. Em `https://localhost:64529/swagger`, clique em **Authorize** e entre com a conta Outlook pessoal. Depois execute `GET /api/me`. O perfil usa o locatário de contas pessoais da Microsoft; a conta precisa consentir com a permissão solicitada. Para conferir o perfil ativo, `http://localhost:64530/swagger/v1/swagger.json` deve conter `/9188040d-6c67-4c5b-b112-36a304b66dad/oauth2/v2.0/authorize` na URL de autorização.
+3. No Visual Studio, pare a execução anterior (**Shift+F5**), selecione na lista ao lado do botão de execução o perfil **FindIt.Api (contas Microsoft - teste)** e inicie a API novamente. Os dois perfis usam a mesma porta; uma instância institucional ainda aberta continuará enviando o login para a UEMG. Em `https://localhost:64529/swagger`, clique em **Authorize** e entre com uma conta Microsoft. Depois execute `GET /api/me`. Para conferir o perfil ativo, `http://localhost:64530/swagger/v1/swagger.json` deve conter `/common/oauth2/v2.0/authorize` na URL de autorização.
 
-Esse perfil existe somente para `Development`. O perfil comum **FindIt.Api** continua exigindo o locatário e o e-mail da UEMG. A política da API, em ambos os perfis, também exige o escopo `access_as_user` e o cliente FindIt Web. Se o token da conta pessoal não trouxer e-mail ou nome de usuário, `GET /api/me` pode retornar `403`; nesse caso, confira as claims localmente e configure no registro **FindIt API → Configuração do token** a claim opcional de e-mail para **token de acesso**. Não compartilhe o token completo.
+Esse perfil existe somente para `Development`; a API rejeita a configuração de teste fora desse ambiente. O perfil comum **FindIt.Api** continua exigindo o locatário e o e-mail da UEMG. Se o token de alguma conta não trouxer e-mail ou UPN, `GET /api/me` pode retornar `403`; nesse caso, confira as claims localmente e configure no registro **FindIt API → Configuração do token** a claim opcional de e-mail para **token de acesso**. Não compartilhe o token completo.
 
-**Resultado observado em 28/09/2026:** a conta Outlook pessoal foi autorizada no Swagger e `GET /api/me` retornou o usuário local de ID 1, com `isAdmin: false`. Isso confirma o fluxo completo no perfil pessoal. O primeiro acesso institucional permanece bloqueado pela política de consentimento da UEMG.
+**Resultados observados:** em 28/09/2026, a conta Outlook pessoal foi autorizada no Swagger e `GET /api/me` retornou o usuário local de ID 1, com `isAdmin: false`, no perfil anterior restrito a contas pessoais. Em 04/10/2026, o login com conta Microsoft pessoal e `GET /api/me` também foram confirmados pelo usuário no perfil de teste com `/common`. O acesso com conta organizacional ainda precisa de teste real.
 
-Para testar as rotas administrativas no banco local, atribua uma vez `IsAdmin = 1` ao usuário de teste já criado. Confirme antes o `Id`, o `TenantId` de contas pessoais e o e-mail na tabela `findit.user`; depois atualize somente essa linha. A API não promove automaticamente o primeiro usuário. Execute `GET /api/me` novamente e confira `isAdmin: true`. Com outra conta Outlook pessoal, teste o papel de usuário comum: a nova conta deve receber `isAdmin: false`, poder abrir/cancelar solicitações próprias e receber `403` nas rotas `/api/admin/...`.
+Para testar as rotas administrativas no banco local, atribua uma vez `IsAdmin = 1` ao usuário de teste já criado. Confirme antes o `Id`, o `TenantId` e o e-mail na tabela `findit.user`; depois atualize somente essa linha. A API não promove automaticamente o primeiro usuário. Execute `GET /api/me` novamente e confira `isAdmin: true`. Com outra conta Microsoft, teste o papel de usuário comum: a nova conta deve receber `isAdmin: false`, poder abrir/cancelar solicitações próprias e receber `403` nas rotas `/api/admin/...`.
 
-Após o primeiro login institucional, um administrador inicial precisa ser atribuído uma única vez no banco. Essa etapa será feita quando o login real estiver funcional; a API não promove automaticamente nenhum usuário.
+Se o login institucional vier a ser autorizado no futuro, um administrador inicial dessa população precisará ser atribuído uma única vez no banco. A API não promove automaticamente nenhum usuário.
+
+### Integração com o frontend
+
+Este repositório contém somente a API; o login validado até agora usa o Swagger. Para um frontend SPA em outra origem funcionar no navegador:
+
+1. Cadastre a URL exata de retorno do frontend em **FindIt Web → Autenticação → Aplicativo de página única (SPA)**. A URI do Swagger não substitui a do frontend.
+2. Configure a mesma origem (esquema, host e porta, sem barra final) em `Cors:AllowedOrigins` na API. O valor padrão é uma lista vazia; somente as origens explicitamente configuradas recebem cabeçalhos CORS. Exemplo de `appsettings.Development.json`, arquivo ignorado pelo Git:
+
+   ```json
+   { "Cors": { "AllowedOrigins": ["http://localhost:5173"] } }
+   ```
+
+3. No frontend, use o ID do **FindIt Web**, a autoridade `https://login.microsoftonline.com/common` para testes e o fluxo de código de autorização com PKCE. Solicite um **token de acesso** para `api://a66cb6cf-367c-4568-b267-8e9f475a99bb/access_as_user` e envie `Authorization: Bearer <token>` às rotas protegidas da API. O token de ID não serve para chamar a API. Não coloque segredo de cliente no navegador.
+4. Aponte as requisições locais para `https://localhost:64529/api/...`. Teste primeiro `GET /api/me`, depois os fluxos de usuário e de administrador; as rotas administrativas dependem de `IsAdmin = 1` no banco.
+
+O perfil **FindIt.Api (contas Microsoft - teste)** aceita tokens de qualquer tenant Microsoft apenas em `Development`. O frontend hospedado em outro ambiente precisará de uma configuração de testes própria; não publique esse perfil como configuração de produção.
 
 ## Execução e testes
 
