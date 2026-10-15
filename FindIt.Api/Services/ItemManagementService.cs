@@ -11,6 +11,8 @@ public sealed record NewItem(
 
 public sealed record ItemChanges(
     int CategoryId, string Name, string Description, string Location, DateTime FoundOn);
+public sealed record ItemPatch(
+    int? CategoryId, string? Name, string? Description, string? Location, DateTime? FoundOn);
 
 public sealed class ItemManagementService(FindItDbContext db, TimeProvider clock)
 {
@@ -66,18 +68,52 @@ public sealed class ItemManagementService(FindItDbContext db, TimeProvider clock
         int itemId, int administratorId, ItemChanges input, CancellationToken cancellationToken)
     {
         ValidateItem(input.CategoryId, input.Name, input.Description, input.Location, input.FoundOn);
+        await UpdateCoreAsync(itemId, administratorId, _ => input, updateFoundOn: true,
+            cancellationToken);
+    }
+
+    public async Task PatchAsync(
+        int itemId, int administratorId, ItemPatch input, CancellationToken cancellationToken)
+    {
+        if (input.CategoryId is null && input.Name is null && input.Description is null
+            && input.Location is null && input.FoundOn is null)
+        {
+            throw new ArgumentException("Informe ao menos um campo para atualizar.");
+        }
+
+        await UpdateCoreAsync(itemId, administratorId, item => new ItemChanges(
+            input.CategoryId ?? item.CategoryId,
+            input.Name ?? item.Name,
+            input.Description ?? item.Description,
+            input.Location ?? item.Location,
+            input.FoundOn ?? item.FoundOn), input.FoundOn.HasValue, cancellationToken);
+    }
+
+    private async Task UpdateCoreAsync(
+        int itemId, int administratorId, Func<Item, ItemChanges> changes,
+        bool updateFoundOn, CancellationToken cancellationToken)
+    {
         await using var transaction = await db.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
         var administrator = await GetAdministratorAsync(administratorId, cancellationToken);
-        await RequireCategoryAsync(input.CategoryId, cancellationToken);
         var item = await db.Items.FindAsync([itemId], cancellationToken)
             ?? throw new KeyNotFoundException("Item não encontrado.");
+        var input = changes(item);
+        ValidateItem(input.CategoryId, input.Name, input.Description, input.Location,
+            input.FoundOn, requireUtcFoundOn: updateFoundOn);
+        if (input.CategoryId != item.CategoryId)
+        {
+            await RequireCategoryAsync(input.CategoryId, cancellationToken);
+        }
 
         item.CategoryId = input.CategoryId;
         item.Name = input.Name.Trim();
         item.Description = input.Description.Trim();
         item.Location = input.Location.Trim();
-        item.FoundOn = input.FoundOn;
+        if (updateFoundOn)
+        {
+            item.FoundOn = input.FoundOn;
+        }
         item.UpdatedAt = clock.GetUtcNow().UtcDateTime;
         db.ActivityLogs.Add(new ActivityLog
         {
@@ -131,10 +167,12 @@ public sealed class ItemManagementService(FindItDbContext db, TimeProvider clock
     }
 
     private static void ValidateItem(
-        int categoryId, string name, string description, string location, DateTime foundOn)
+        int categoryId, string name, string description, string location, DateTime foundOn,
+        bool requireUtcFoundOn = true)
     {
         if (categoryId <= 0 || !IsValid(name, 255) || !IsValid(description, 2000)
-            || !IsValid(location, 255) || foundOn.Kind != DateTimeKind.Utc)
+            || !IsValid(location, 255)
+            || (requireUtcFoundOn && foundOn.Kind != DateTimeKind.Utc))
         {
             throw new ArgumentException("Dados do item inválidos. Informe categoria, textos e data em UTC.");
         }

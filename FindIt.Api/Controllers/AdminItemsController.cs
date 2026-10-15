@@ -37,6 +37,17 @@ public sealed class AdminItemsController(
         return NoContent();
     }
 
+    [HttpPatch("{id:int}")]
+    public async Task<IActionResult> Patch(
+        int id, PatchItemDto input, CancellationToken cancellationToken)
+    {
+        var administrator = await RequireAdminAsync(cancellationToken);
+        await items.PatchAsync(id, administrator.Id,
+            new ItemPatch(input.CategoryId, input.Name, input.Description,
+                input.Location, input.FoundOn), cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("{id:int}/return")]
     public async Task<IActionResult> Return(int id, CancellationToken cancellationToken)
     {

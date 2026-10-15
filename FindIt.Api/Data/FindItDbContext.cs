@@ -1,5 +1,6 @@
 using FindIt.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace FindIt.Api.Data;
 
@@ -11,6 +12,11 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
     public DbSet<Item> Items => Set<Item>();
     public DbSet<RecoveryRequest> RecoveryRequests => Set<RecoveryRequest>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,3 +89,7 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
         });
     }
 }
+
+public sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
+    value => value,
+    value => DateTime.SpecifyKind(value, DateTimeKind.Utc));

@@ -202,6 +202,72 @@ public sealed class RecoveryWorkflowTests
     }
 
     [Fact]
+    public async Task DatesLoadedFromDatabaseAreMarkedUtc()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = fixture.AddRequest(userId: 1, status: RequestStatus.Approved);
+        request.ExpiresAt = FridayApproval.AddDays(1);
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChangeTracker.Clear();
+
+        var item = await fixture.Db.Items.SingleAsync(x => x.Id == fixture.Item.Id);
+        var loadedRequest = await fixture.Db.RecoveryRequests.SingleAsync(x => x.Id == request.Id);
+
+        Assert.Equal(DateTimeKind.Utc, item.FoundOn.Kind);
+        Assert.Equal(DateTimeKind.Utc, item.CreatedAt.Kind);
+        Assert.Equal(DateTimeKind.Utc, loadedRequest.ExpiresAt!.Value.Kind);
+    }
+
+    [Fact]
+    public async Task PatchingItemNameKeepsOtherFields()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var originalCategoryId = fixture.Item.CategoryId;
+        var originalFoundOn = fixture.Item.FoundOn;
+        fixture.Db.ChangeTracker.Clear();
+        var item = await fixture.Db.Items.SingleAsync(x => x.Id == fixture.Item.Id);
+        item.FoundOn = DateTime.SpecifyKind(item.FoundOn, DateTimeKind.Unspecified);
+        var service = new ItemManagementService(fixture.Db, new FixedClock(FridayApproval.AddDays(1)));
+
+        await service.PatchAsync(item.Id, 3,
+            new ItemPatch(null, "  Carteira  ", null, null, null), default);
+
+        Assert.Equal("Carteira", item.Name);
+        Assert.Equal(originalCategoryId, item.CategoryId);
+        Assert.Equal("Chave encontrada", item.Description);
+        Assert.Equal("Biblioteca", item.Location);
+        Assert.Equal(originalFoundOn, item.FoundOn);
+        Assert.Equal(DateTimeKind.Unspecified, item.FoundOn.Kind);
+        Assert.Equal(FridayApproval.AddDays(1), item.UpdatedAt);
+        Assert.Equal(1, await fixture.Db.ActivityLogs.CountAsync());
+    }
+
+    [Fact]
+    public async Task EmptyItemPatchIsRejected()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var service = new ItemManagementService(fixture.Db, new FixedClock(FridayApproval));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.PatchAsync(
+            fixture.Item.Id, 3, new ItemPatch(null, null, null, null, null), default));
+
+        Assert.Equal(0, await fixture.Db.ActivityLogs.CountAsync());
+    }
+
+    [Fact]
+    public async Task PatchingFoundOnRequiresUtc()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var service = new ItemManagementService(fixture.Db, new FixedClock(FridayApproval));
+        var unspecified = DateTime.SpecifyKind(FridayApproval, DateTimeKind.Unspecified);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.PatchAsync(
+            fixture.Item.Id, 3, new ItemPatch(null, null, null, null, unspecified), default));
+
+        Assert.Equal(0, await fixture.Db.ActivityLogs.CountAsync());
+    }
+
+    [Fact]
     public async Task NewRequestCanOpenImmediatelyAfterPreviousApprovalExpires()
     {
         await using var fixture = await Fixture.CreateAsync();

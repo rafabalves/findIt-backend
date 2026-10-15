@@ -120,4 +120,6 @@ dotnet test FindIt.Api.Tests\FindIt.Api.Tests.csproj
 
 O Swagger UI aparece no ambiente de desenvolvimento. As rotas públicas são `GET /api/items`, `GET /api/items/{id}`, `GET /api/items/by-qr/{guid}`, `GET /api/items/recently-closed` e `GET /api/categories`. As demais rotas exigem token; as rotas `/api/admin/...` também conferem `isAdmin` no banco.
 
+Para editar apenas alguns dados de um item, use `PATCH /api/admin/items/{id}` e envie somente os campos desejados, por exemplo `{ "name": "Novo nome" }`. Os demais dados permanecem como estão. O endpoint `PUT /api/admin/items/{id}` continua exigindo todos os campos editáveis.
+
 As datas persistidas são UTC. A aprovação vence à meia-noite **após** o quinto dia útil, no horário de Brasília; assim, continua válida durante toda a faixa das 23h59 desse dia. Sábados e domingos não contam; feriados não são considerados nesta versão.
