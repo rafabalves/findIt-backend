@@ -102,5 +102,12 @@ CREATE UNIQUE INDEX `IX_user_TenantId_ObjectId` ON `user` (`TenantId`, `ObjectId
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('20260927102319_InitialCreate', '10.0.12');
 
+DROP INDEX IX_qr_code_Code ON qr_code;
+
+ALTER TABLE `qr_code` DROP COLUMN `Code`;
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20261015051243_RemoveRedundantQRCodeCode', '10.0.12');
+
 COMMIT;
 

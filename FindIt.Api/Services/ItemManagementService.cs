@@ -104,7 +104,7 @@ public sealed class ItemManagementService(FindItDbContext db, TimeProvider clock
         var codes = Enumerable.Range(0, count).Select(_ =>
         {
             var guid = Guid.NewGuid();
-            return new QRCode { Guid = guid, Code = guid.ToString("N"), CreatedAt = now };
+            return new QRCode { Guid = guid, CreatedAt = now };
         }).ToArray();
         db.QRCodes.AddRange(codes);
         await db.SaveChangesAsync(cancellationToken);

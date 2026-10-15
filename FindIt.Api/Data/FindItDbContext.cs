@@ -36,8 +36,6 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
             entity.ToTable("qr_code");
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.Guid).IsUnique();
-            entity.HasIndex(x => x.Code).IsUnique();
-            entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
         });
 
         modelBuilder.Entity<Item>(entity =>

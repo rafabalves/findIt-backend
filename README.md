@@ -5,7 +5,7 @@ API ASP.NET Core 10 para o sistema de achados e perdidos FindIt da UEMG Divinóp
 ## Estado atual
 
 - Entidades e mapeamento EF Core para usuários, categorias, etiquetas QR, itens, solicitações e histórico.
-- Primeira migration em `FindIt.Api/Data/Migrations` e SQL gerado para conferência em `database/initial.sql`.
+- Migrations em `FindIt.Api/Data/Migrations` e SQL gerado para conferência em `database/initial.sql`.
 - Consultas públicas de itens e categorias.
 - Fluxos autenticados de solicitação, cancelamento, aprovação, recusa e entrega.
 - Ajuste excepcional do estado de um item, com motivo e histórico.
@@ -13,7 +13,7 @@ API ASP.NET Core 10 para o sistema de achados e perdidos FindIt da UEMG Divinóp
 - Expiração automática de aprovações vencidas, ao iniciar a API e a cada minuto.
 - Testes de regras de negócio com banco SQLite em memória.
 
-A primeira migration foi aplicada ao MySQL local em 27/09/2026. Os registros FindIt API e FindIt Web foram criados no diretório Entra pessoal do desenvolvedor. O perfil principal do backend continua restrito ao tenant da UEMG, ao escopo `access_as_user` e ao cliente FindIt Web. A UEMG informou em 04/10/2026 que não autoriza aplicativos experimentais; portanto, esse perfil não pode ser validado com usuários institucionais neste TCC. O perfil de desenvolvimento aceita contas Microsoft pessoais e organizacionais para testes. Em 04/10/2026, o login com conta Microsoft pessoal e a rota `GET /api/me` foram confirmados no perfil de teste; contas organizacionais ainda não foram validadas. As consultas públicas funcionam sem token; as rotas autenticadas exigem um token válido.
+A primeira migration foi aplicada ao MySQL local em 27/09/2026. Em 15/10/2026, a migration `RemoveRedundantQRCodeCode` retirou da tabela `qr_code` a coluna `Code`, que apenas repetia o GUID sem hífens; os endpoints de etiquetas retornam `Id` e `Guid`. Os registros FindIt API e FindIt Web foram criados no diretório Entra pessoal do desenvolvedor. O perfil principal do backend continua restrito ao tenant da UEMG, ao escopo `access_as_user` e ao cliente FindIt Web. A UEMG informou em 04/10/2026 que não autoriza aplicativos experimentais; portanto, esse perfil não pode ser validado com usuários institucionais neste TCC. O perfil de desenvolvimento aceita contas Microsoft pessoais e organizacionais para testes. Em 04/10/2026, o login com conta Microsoft pessoal e a rota `GET /api/me` foram confirmados no perfil de teste; contas organizacionais ainda não foram validadas. As consultas públicas funcionam sem token; as rotas autenticadas exigem um token válido.
 
 ## Requisitos
 
@@ -48,13 +48,13 @@ Em Visual Studio, clique com o botão direito em `FindIt.Api` e abra **Gerenciar
 }
 ```
 
-O arquivo de segredos fica fora da pasta do projeto. Depois, na raiz do projeto, aplique a migration:
+O arquivo de segredos fica fora da pasta do projeto. Depois, na raiz do projeto, aplique as migrations pendentes:
 
 ```powershell
 .\.tools\dotnet-ef database update --project FindIt.Api\FindIt.Api.csproj --startup-project FindIt.Api\FindIt.Api.csproj
 ```
 
-O arquivo `database/initial.sql` permite inspecionar a estrutura gerada. Use **a migration ou o SQL**, sem executar ambos no mesmo banco.
+O arquivo `database/initial.sql` contém o SQL gerado para todas as migrations até a versão atual. Use **as migrations ou o SQL**, sem executar ambos no mesmo banco.
 
 ## Login institucional
 

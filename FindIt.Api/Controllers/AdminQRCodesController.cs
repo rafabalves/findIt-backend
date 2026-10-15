@@ -21,7 +21,7 @@ public sealed class AdminQRCodesController(
         var user = await RequireAdminAsync(cancellationToken);
         var codes = await items.GenerateQRCodesAsync(user.Id, input.Count, cancellationToken);
         return StatusCode(StatusCodes.Status201Created,
-            codes.Select(x => new QRCodeDto(x.Id, x.Guid, x.Code)).ToList());
+            codes.Select(x => new QRCodeDto(x.Id, x.Guid)).ToList());
     }
 
     [HttpGet("available")]
@@ -30,7 +30,7 @@ public sealed class AdminQRCodesController(
         await RequireAdminAsync(cancellationToken);
         return await db.QRCodes.AsNoTracking().Where(x => x.Item == null)
             .OrderBy(x => x.Id)
-            .Select(x => new QRCodeDto(x.Id, x.Guid, x.Code))
+            .Select(x => new QRCodeDto(x.Id, x.Guid))
             .ToListAsync(cancellationToken);
     }
 

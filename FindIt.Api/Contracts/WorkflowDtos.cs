@@ -17,7 +17,7 @@ public sealed record UpdateItemDto(
     int CategoryId, string Name, string Description, string Location, DateTime FoundOn);
 public sealed record ChangeItemStatusDto(ItemStatus Status, string Reason);
 public sealed record GenerateQRCodesDto(int Count);
-public sealed record QRCodeDto(int Id, Guid Guid, string Code);
+public sealed record QRCodeDto(int Id, Guid Guid);
 public sealed record ActivityDto(
     int Id, int? UserId, ActivityType Type, string Description, DateTime CreatedAt);
 public sealed record CategoryInputDto(string Name);
