@@ -13,7 +13,7 @@ namespace FindIt.Api.Controllers;
 [Route("api/admin/items")]
 public sealed class AdminItemsController(
     CurrentUserService currentUser, ItemManagementService items,
-    RecoveryWorkflowService workflow, FindItDbContext db) : ControllerBase
+    RecoveryWorkflowService workflow, ItemPhotoService photos, FindItDbContext db) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<object>> Create(
@@ -35,6 +35,16 @@ public sealed class AdminItemsController(
             new ItemChanges(input.CategoryId, input.Name, input.Description,
                 input.Location, input.FoundOn), cancellationToken);
         return NoContent();
+    }
+
+    [HttpPut("{id:int}/photos")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(16_000_000)]
+    public async Task<ActionResult<IReadOnlyList<ItemPhotoDto>>> ReplacePhotos(
+        int id, [FromForm] List<IFormFile>? files, CancellationToken cancellationToken)
+    {
+        var administrator = await RequireAdminAsync(cancellationToken);
+        return Ok(await photos.ReplaceAsync(id, administrator.Id, files ?? [], cancellationToken));
     }
 
     [HttpPatch("{id:int}")]

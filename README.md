@@ -122,4 +122,10 @@ O Swagger UI aparece no ambiente de desenvolvimento. As rotas públicas são `GE
 
 Para editar apenas alguns dados de um item, use `PATCH /api/admin/items/{id}` e envie somente os campos desejados, por exemplo `{ "name": "Novo nome" }`. Os demais dados permanecem como estão. O endpoint `PUT /api/admin/items/{id}` continua exigindo todos os campos editáveis.
 
+### Fotos dos itens
+
+O cadastro continua em duas etapas: `POST /api/admin/items` recebe JSON e retorna `{ "id": 42 }`; depois `PUT /api/admin/items/42/photos` recebe `multipart/form-data`, com até três partes chamadas `files`. A rota substitui todo o conjunto de fotos e também funciona na edição. Enviar um formulário multipart vazio remove todas as fotos. Apenas administradores podem alterar fotos. Os DTOs públicos de itens incluem `photos: [{ "id": 1 }]`, e cada imagem pode ser lida em `GET /api/items/{id}/photos/{photoId}`.
+
+Execute a migration `AddItemPhotos` antes de usar as novas rotas. Os arquivos ficam, por padrão, em `%LOCALAPPDATA%\FindIt\photos` no Windows, fora do repositório. Para o desenvolvimento local, configure `Photos:RootPath` em `FindIt.Api/appsettings.Development.json`; nesta máquina ele aponta para `C:\Users\Rafae\Desktop\FindIt-data\photos`, ao lado das pastas do backend e do frontend. A API cria a pasta no primeiro envio de fotos. Inclua essa pasta no backup junto com o MySQL. `Photos:MaxCount` e `Photos:MaxBytes` controlam os limites (padrões: 3 arquivos e 5 MB por arquivo). São aceitos JPEG, PNG e WebP. O navegador não recebe acesso direto à pasta. Uma futura melhoria é substituir o armazenamento em disco por um serviço de objetos na nuvem.
+
 As datas persistidas são UTC. A aprovação vence à meia-noite **após** o quinto dia útil, no horário de Brasília; assim, continua válida durante toda a faixa das 23h59 desse dia. Sábados e domingos não contam; feriados não são considerados nesta versão.

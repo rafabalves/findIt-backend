@@ -131,6 +131,41 @@ namespace FindIt.Api.Data.Migrations
                     b.ToTable("item", (string)null);
                 });
 
+            modelBuilder.Entity("FindIt.Api.Domain.ItemPhoto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId", "SortOrder");
+
+                    b.ToTable("item_photo", (string)null);
+                });
+
             modelBuilder.Entity("FindIt.Api.Domain.QRCode", b =>
                 {
                     b.Property<int>("Id")
@@ -269,6 +304,17 @@ namespace FindIt.Api.Data.Migrations
                     b.Navigation("QRCode");
                 });
 
+            modelBuilder.Entity("FindIt.Api.Domain.ItemPhoto", b =>
+                {
+                    b.HasOne("FindIt.Api.Domain.Item", "Item")
+                        .WithMany("Photos")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
             modelBuilder.Entity("FindIt.Api.Domain.RecoveryRequest", b =>
                 {
                     b.HasOne("FindIt.Api.Domain.Item", "Item")
@@ -296,6 +342,8 @@ namespace FindIt.Api.Data.Migrations
             modelBuilder.Entity("FindIt.Api.Domain.Item", b =>
                 {
                     b.Navigation("ActivityLogs");
+
+                    b.Navigation("Photos");
 
                     b.Navigation("RecoveryRequests");
                 });

@@ -11,7 +11,10 @@ public sealed record ItemPublicDto(
     ItemStatus Status,
     DateTime FoundOn,
     DateTime CreatedAt,
-    DateTime StatusChangedAt);
+    DateTime StatusChangedAt,
+    IReadOnlyList<ItemPhotoDto> Photos);
+
+public sealed record ItemPhotoDto(int Id);
 
 public sealed record CategoryPublicDto(int Id, string Name);
 

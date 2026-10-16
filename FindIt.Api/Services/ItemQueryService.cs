@@ -67,5 +67,7 @@ public sealed class ItemQueryService(FindItDbContext db)
     private static IQueryable<ItemPublicDto> Project(IQueryable<Item> query) =>
         query.Select(x => new ItemPublicDto(
             x.Id, x.Name, x.Description, x.Location, x.Category.Name, x.Status,
-            x.FoundOn, x.CreatedAt, x.StatusChangedAt));
+            x.FoundOn, x.CreatedAt, x.StatusChangedAt,
+            x.Photos.OrderBy(photo => photo.SortOrder)
+                .Select(photo => new ItemPhotoDto(photo.Id)).ToList()));
 }

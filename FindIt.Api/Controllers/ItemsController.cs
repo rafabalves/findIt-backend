@@ -8,7 +8,7 @@ namespace FindIt.Api.Controllers;
 [ApiController]
 [AllowAnonymous]
 [Route("api/items")]
-public sealed class ItemsController(ItemQueryService items) : ControllerBase
+public sealed class ItemsController(ItemQueryService items, ItemPhotoService photos) : ControllerBase
 {
     [HttpGet]
     public Task<PagedResult<ItemPublicDto>> Search(
@@ -40,5 +40,15 @@ public sealed class ItemsController(ItemQueryService items) : ControllerBase
     {
         var item = await items.GetByQrAsync(guid, cancellationToken);
         return item is null ? NotFound() : Ok(item);
+    }
+
+    [HttpGet("{id:int}/photos/{photoId:int}")]
+    public async Task<IActionResult> Photo(int id, int photoId, CancellationToken cancellationToken)
+    {
+        var photo = await photos.FindAsync(id, photoId, cancellationToken);
+        if (photo is null) return NotFound();
+        Response.Headers.CacheControl = "public, max-age=3600";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return PhysicalFile(photo.Value.Path, photo.Value.ContentType);
     }
 }

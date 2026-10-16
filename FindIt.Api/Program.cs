@@ -99,6 +99,7 @@ builder.Services.AddScoped<RequestExpirationService>();
 builder.Services.AddHostedService<RequestExpirationWorker>();
 builder.Services.AddScoped<RecoveryWorkflowService>();
 builder.Services.AddScoped<ItemManagementService>();
+builder.Services.AddScoped<ItemPhotoService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<AdministrationService>();
 builder.Services.AddSingleton(TimeProvider.System);

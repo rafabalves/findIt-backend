@@ -53,6 +53,19 @@ public sealed class Item
     public DateTime StatusChangedAt { get; set; }
     public ICollection<RecoveryRequest> RecoveryRequests { get; set; } = [];
     public ICollection<ActivityLog> ActivityLogs { get; set; } = [];
+    public ICollection<ItemPhoto> Photos { get; set; } = [];
+}
+
+public sealed class ItemPhoto
+{
+    public int Id { get; set; }
+    public int ItemId { get; set; }
+    public Item Item { get; set; } = null!;
+    public required string FileName { get; set; }
+    public required string ContentType { get; set; }
+    public long Size { get; set; }
+    public int SortOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class RecoveryRequest

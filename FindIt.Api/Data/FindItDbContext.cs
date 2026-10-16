@@ -10,6 +10,7 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<QRCode> QRCodes => Set<QRCode>();
     public DbSet<Item> Items => Set<Item>();
+    public DbSet<ItemPhoto> ItemPhotos => Set<ItemPhoto>();
     public DbSet<RecoveryRequest> RecoveryRequests => Set<RecoveryRequest>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -58,6 +59,17 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
                 .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.QRCode).WithOne(x => x.Item)
                 .HasForeignKey<Item>(x => x.QRCodeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ItemPhoto>(entity =>
+        {
+            entity.ToTable("item_photo");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.ItemId, x.SortOrder });
+            entity.Property(x => x.FileName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.ContentType).HasMaxLength(30).IsRequired();
+            entity.HasOne(x => x.Item).WithMany(x => x.Photos)
+                .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RecoveryRequest>(entity =>
