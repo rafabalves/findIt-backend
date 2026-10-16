@@ -41,6 +41,15 @@ public sealed class ItemQueryService(FindItDbContext db)
         return await ToPageAsync(query, page, pageSize, cancellationToken);
     }
 
+    public Task<PagedResult<ItemPublicDto>> RecentlyReturnedAsync(
+        int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-7);
+        var query = db.Items.AsNoTracking().Where(x =>
+            x.Status == ItemStatus.Returned && x.StatusChangedAt >= cutoff);
+        return ToPageAsync(query, page, pageSize, cancellationToken);
+    }
+
     public Task<ItemPublicDto?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
         Project(db.Items.AsNoTracking().Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);

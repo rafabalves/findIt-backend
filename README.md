@@ -118,7 +118,7 @@ dotnet run --project FindIt.Api\FindIt.Api.csproj
 dotnet test FindIt.Api.Tests\FindIt.Api.Tests.csproj
 ```
 
-O Swagger UI aparece no ambiente de desenvolvimento. As rotas públicas são `GET /api/items`, `GET /api/items/{id}`, `GET /api/items/by-qr/{guid}`, `GET /api/items/recently-closed` e `GET /api/categories`. As demais rotas exigem token; as rotas `/api/admin/...` também conferem `isAdmin` no banco.
+O Swagger UI aparece no ambiente de desenvolvimento. As rotas públicas são `GET /api/items`, `GET /api/items/{id}`, `GET /api/items/by-qr/{guid}`, `GET /api/items/recently-closed`, `GET /api/items/recently-returned` e `GET /api/categories`. A rota `recently-returned` lista apenas itens devolvidos nos últimos sete dias; `recently-closed` também inclui arquivados. As demais rotas exigem token; as rotas `/api/admin/...` também conferem `isAdmin` no banco.
 
 Para editar apenas alguns dados de um item, use `PATCH /api/admin/items/{id}` e envie somente os campos desejados, por exemplo `{ "name": "Novo nome" }`. Os demais dados permanecem como estão. O endpoint `PUT /api/admin/items/{id}` continua exigindo todos os campos editáveis.
 

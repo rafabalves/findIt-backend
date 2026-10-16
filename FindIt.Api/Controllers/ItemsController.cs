@@ -26,6 +26,13 @@ public sealed class ItemsController(ItemQueryService items, ItemPhotoService pho
         CancellationToken cancellationToken = default) =>
         items.RecentlyClosedAsync(page, pageSize, cancellationToken);
 
+    [HttpGet("recently-returned")]
+    public Task<PagedResult<ItemPublicDto>> RecentlyReturned(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        items.RecentlyReturnedAsync(page, pageSize, cancellationToken);
+
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ItemPublicDto>> ById(
         int id, CancellationToken cancellationToken)
