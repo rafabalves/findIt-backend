@@ -210,6 +210,16 @@ namespace FindIt.Api.Data.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<string>("PickupCodeEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("PickupCodeFailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PickupCodeLockedUntil")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)

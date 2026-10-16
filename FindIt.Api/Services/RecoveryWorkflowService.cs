@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FindIt.Api.Services;
 
-public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clock)
+public sealed class RecoveryWorkflowService(
+    FindItDbContext db, TimeProvider clock, PickupCodeService pickupCodes)
 {
     public async Task<int> CreateAsync(
         int itemId, int userId, string justification, CancellationToken cancellationToken)
@@ -34,6 +35,7 @@ public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clo
         if (approved is not null && approved.ExpiresAt <= now)
         {
             approved.Status = RequestStatus.Expired;
+            approved.PickupCodeEncrypted = null;
             approved.UpdatedAt = now;
             AddActivity(itemId, null, ActivityType.RequestExpired,
                 $"A solicitação {approved.Id} expirou sem registro de entrega.", now);
@@ -121,6 +123,7 @@ public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clo
         request.Status = RequestStatus.Approved;
         request.AdminNotes = adminNotes;
         request.ExpiresAt = BusinessDayDeadline.FiveBusinessDaysAfter(now);
+        request.PickupCodeEncrypted = pickupCodes.Protect(pickupCodes.Generate());
         request.UpdatedAt = now;
         AddActivity(item.Id, administratorId, ActivityType.RequestApproved,
             $"{administrator.Name} aprovou a solicitação {request.Id}.", now);
@@ -162,8 +165,36 @@ public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clo
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task<string> GetPickupCodeAsync(
+        int requestId, int userId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+        var request = await db.RecoveryRequests.Include(x => x.Item)
+            .SingleOrDefaultAsync(x => x.Id == requestId, cancellationToken)
+            ?? throw new KeyNotFoundException("Solicitação não encontrada.");
+        if (request.UserId != userId)
+        {
+            throw new UnauthorizedAccessException("A solicitação pertence a outro usuário.");
+        }
+
+        var now = clock.GetUtcNow().UtcDateTime;
+        if (request.Status != RequestStatus.Approved || request.ExpiresAt <= now
+            || request.Item.Status != ItemStatus.Active)
+        {
+            throw new BusinessConflictException("Esta solicitação não possui retirada aprovada e válida.");
+        }
+
+        // Solicitações aprovadas antes da inclusão do código recebem um ao serem consultadas.
+        request.PickupCodeEncrypted ??= pickupCodes.Protect(pickupCodes.Generate());
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return pickupCodes.Unprotect(request.PickupCodeEncrypted);
+    }
+
     public async Task ReturnAsync(
-        int itemId, int administratorId, CancellationToken cancellationToken)
+        int itemId, int administratorId, string pickupCode,
+        CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
@@ -184,9 +215,30 @@ public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clo
             throw new BusinessConflictException("Não há solicitação aprovada e válida para esta entrega.");
         }
 
+        if (request.PickupCodeLockedUntil > now)
+        {
+            throw new BusinessConflictException("Código temporariamente bloqueado. Tente novamente mais tarde.");
+        }
+        if (string.IsNullOrWhiteSpace(pickupCode) || request.PickupCodeEncrypted is null
+            || !pickupCodes.Verify(request.PickupCodeEncrypted, pickupCode))
+        {
+            request.PickupCodeFailedAttempts++;
+            if (request.PickupCodeFailedAttempts >= 5)
+            {
+                request.PickupCodeFailedAttempts = 0;
+                request.PickupCodeLockedUntil = now.AddMinutes(15);
+            }
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            throw new BusinessConflictException("Código de retirada inválido.");
+        }
+
         item.Status = ItemStatus.Returned;
         item.StatusChangedAt = now;
         item.UpdatedAt = now;
+        request.PickupCodeEncrypted = null;
+        request.PickupCodeFailedAttempts = 0;
+        request.PickupCodeLockedUntil = null;
         AddActivity(itemId, administratorId, ActivityType.ItemReturned,
             $"{administrator.Name} registrou a entrega do item ao usuário {request.User.Name} pela solicitação {request.Id}.", now);
         await db.SaveChangesAsync(cancellationToken);
@@ -227,6 +279,7 @@ public sealed class RecoveryWorkflowService(FindItDbContext db, TimeProvider clo
         {
             request.Status = request.Status == RequestStatus.Approved
                 ? RequestStatus.Cancelled : RequestStatus.Rejected;
+            request.PickupCodeEncrypted = null;
             request.AdminNotes = reason;
             request.UpdatedAt = now;
             AddActivity(itemId, administratorId,

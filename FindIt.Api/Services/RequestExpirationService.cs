@@ -24,6 +24,7 @@ public sealed class RequestExpirationService(FindItDbContext db)
         foreach (var request in requests)
         {
             request.Status = RequestStatus.Expired;
+            request.PickupCodeEncrypted = null;
             request.UpdatedAt = utcNow;
             db.ActivityLogs.Add(new ActivityLog
             {

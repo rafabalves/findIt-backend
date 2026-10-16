@@ -59,10 +59,11 @@ public sealed class AdminItemsController(
     }
 
     [HttpPost("{id:int}/return")]
-    public async Task<IActionResult> Return(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Return(
+        int id, ReturnItemDto input, CancellationToken cancellationToken)
     {
         var administrator = await RequireAdminAsync(cancellationToken);
-        await workflow.ReturnAsync(id, administrator.Id, cancellationToken);
+        await workflow.ReturnAsync(id, administrator.Id, input.PickupCode, cancellationToken);
         return NoContent();
     }
 

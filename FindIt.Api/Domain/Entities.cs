@@ -79,6 +79,9 @@ public sealed class RecoveryRequest
     public string? AdminNotes { get; set; }
     public RequestStatus Status { get; set; } = RequestStatus.Pending;
     public DateTime? ExpiresAt { get; set; }
+    public string? PickupCodeEncrypted { get; set; }
+    public int PickupCodeFailedAttempts { get; set; }
+    public DateTime? PickupCodeLockedUntil { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

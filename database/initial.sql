@@ -109,5 +109,31 @@ ALTER TABLE `qr_code` DROP COLUMN `Code`;
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('20261015051243_RemoveRedundantQRCodeCode', '10.0.12');
 
+CREATE TABLE `item_photo` (
+    `Id` int NOT NULL AUTO_INCREMENT,
+    `ItemId` int NOT NULL,
+    `FileName` varchar(100) NOT NULL,
+    `ContentType` varchar(30) NOT NULL,
+    `Size` bigint NOT NULL,
+    `SortOrder` int NOT NULL,
+    `CreatedAt` datetime(6) NOT NULL,
+    PRIMARY KEY (`Id`),
+    CONSTRAINT `FK_item_photo_item_ItemId` FOREIGN KEY (`ItemId`) REFERENCES `item` (`Id`) ON DELETE CASCADE
+);
+
+CREATE INDEX `IX_item_photo_ItemId_SortOrder` ON `item_photo` (`ItemId`, `SortOrder`);
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20261016050615_AddItemPhotos', '10.0.12');
+
+ALTER TABLE `recovery_request` ADD `PickupCodeEncrypted` varchar(1000) NULL;
+
+ALTER TABLE `recovery_request` ADD `PickupCodeFailedAttempts` int NOT NULL DEFAULT 0;
+
+ALTER TABLE `recovery_request` ADD `PickupCodeLockedUntil` datetime(6) NULL;
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20261016070155_AddPickupCode', '10.0.12');
+
 COMMIT;
 

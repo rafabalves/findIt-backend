@@ -3,6 +3,7 @@ using FindIt.Api.Domain;
 using FindIt.Api.Services;
 using System.Security.Claims;
 using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
@@ -12,6 +13,9 @@ namespace FindIt.Api.Tests;
 
 public sealed class RecoveryWorkflowTests
 {
+    private static readonly PickupCodeService TestCodes = new(new EphemeralDataProtectionProvider());
+    private static RecoveryWorkflowService Workflow(Fixture fixture, DateTime now) =>
+        new(fixture.Db, new FixedClock(now), TestCodes);
     private static readonly DateTime FridayApproval =
         new(2026, 9, 25, 15, 0, 0, DateTimeKind.Utc);
 
@@ -32,7 +36,7 @@ public sealed class RecoveryWorkflowTests
         var second = fixture.AddRequest(userId: 2);
         await fixture.Db.SaveChangesAsync();
 
-        var workflow = new RecoveryWorkflowService(fixture.Db, new FixedClock(FridayApproval));
+        var workflow = Workflow(fixture, FridayApproval);
         await workflow.ApproveAsync(first.Id, administratorId: 3, "Documento conferido", default);
 
         Assert.Equal(RequestStatus.Approved, first.Status);
@@ -40,6 +44,7 @@ public sealed class RecoveryWorkflowTests
         Assert.Equal("Outra solicitação para este item foi aprovada.", second.AdminNotes);
         Assert.Equal(ItemStatus.Active, fixture.Item.Status);
         Assert.Equal(BusinessDayDeadline.FiveBusinessDaysAfter(FridayApproval), first.ExpiresAt);
+        Assert.NotNull(first.PickupCodeEncrypted);
         Assert.Equal(2, await fixture.Db.ActivityLogs.CountAsync());
     }
 
@@ -49,6 +54,7 @@ public sealed class RecoveryWorkflowTests
         await using var fixture = await Fixture.CreateAsync();
         var request = fixture.AddRequest(userId: 1, status: RequestStatus.Approved);
         request.ExpiresAt = FridayApproval.AddMinutes(-1);
+        request.PickupCodeEncrypted = TestCodes.Protect("ABCDEFGH23");
         await fixture.Db.SaveChangesAsync();
 
         var count = await new RequestExpirationService(fixture.Db)
@@ -56,6 +62,7 @@ public sealed class RecoveryWorkflowTests
 
         Assert.Equal(1, count);
         Assert.Equal(RequestStatus.Expired, request.Status);
+        Assert.Null(request.PickupCodeEncrypted);
         var activity = await fixture.Db.ActivityLogs.SingleAsync();
         Assert.Equal(ActivityType.RequestExpired, activity.Type);
         Assert.Null(activity.UserId);
@@ -85,15 +92,59 @@ public sealed class RecoveryWorkflowTests
         request.ExpiresAt = FridayApproval.AddDays(1);
         await fixture.Db.SaveChangesAsync();
 
-        var workflow = new RecoveryWorkflowService(fixture.Db, new FixedClock(FridayApproval));
-        await workflow.ReturnAsync(fixture.Item.Id, administratorId: 3, default);
+        request.PickupCodeEncrypted = TestCodes.Protect("ABCDEFGH23");
+        var workflow = Workflow(fixture, FridayApproval);
+        await workflow.ReturnAsync(fixture.Item.Id, administratorId: 3, "ABCDEFGH23", default);
 
         Assert.Equal(ItemStatus.Returned, fixture.Item.Status);
         Assert.Equal(RequestStatus.Approved, request.Status);
+        Assert.Null(request.PickupCodeEncrypted);
+        await Assert.ThrowsAsync<BusinessConflictException>(() =>
+            workflow.GetPickupCodeAsync(request.Id, 1, default));
         Assert.Equal(ActivityType.ItemReturned,
             (await fixture.Db.ActivityLogs.SingleAsync()).Type);
         Assert.Equal(0, await new RequestExpirationService(fixture.Db)
             .ExpireDueAsync(FridayApproval.AddDays(2), default));
+    }
+
+    [Fact]
+    public async Task ApprovedPickupCodeIsStableAndVisibleOnlyToItsOwner()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = fixture.AddRequest(userId: 1);
+        await fixture.Db.SaveChangesAsync();
+        var workflow = Workflow(fixture, FridayApproval);
+        await workflow.ApproveAsync(request.Id, 3, null, default);
+
+        var code = await workflow.GetPickupCodeAsync(request.Id, 1, default);
+        Assert.Equal(10, code.Length);
+        Assert.Equal(code, await workflow.GetPickupCodeAsync(request.Id, 1, default));
+        Assert.NotEqual(code, request.PickupCodeEncrypted);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            workflow.GetPickupCodeAsync(request.Id, 2, default));
+        await Assert.ThrowsAsync<BusinessConflictException>(() =>
+            workflow.CreateAsync(fixture.Item.Id, 2, "Este item é meu.", default));
+    }
+
+    [Fact]
+    public async Task WrongPickupCodeCannotRecordReturnAndRepeatedFailuresTemporarilyBlockIt()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = fixture.AddRequest(userId: 1);
+        await fixture.Db.SaveChangesAsync();
+        var workflow = Workflow(fixture, FridayApproval);
+        await workflow.ApproveAsync(request.Id, 3, null, default);
+        var code = await workflow.GetPickupCodeAsync(request.Id, 1, default);
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            await Assert.ThrowsAsync<BusinessConflictException>(() =>
+                workflow.ReturnAsync(fixture.Item.Id, 3, "INVALID123", default));
+        }
+        Assert.Equal(ItemStatus.Active, fixture.Item.Status);
+        Assert.Equal(FridayApproval.AddMinutes(15), request.PickupCodeLockedUntil);
+        await Assert.ThrowsAsync<BusinessConflictException>(() =>
+            workflow.ReturnAsync(fixture.Item.Id, 3, code, default));
     }
 
     [Fact]
@@ -104,7 +155,7 @@ public sealed class RecoveryWorkflowTests
         var pending = fixture.AddRequest(userId: 2);
         await fixture.Db.SaveChangesAsync();
 
-        var workflow = new RecoveryWorkflowService(fixture.Db, new FixedClock(FridayApproval));
+        var workflow = Workflow(fixture, FridayApproval);
         await workflow.OverrideStatusAsync(fixture.Item.Id, 3, ItemStatus.Returned,
             "Entrega presencial ao visitante", default);
 
@@ -150,7 +201,7 @@ public sealed class RecoveryWorkflowTests
         var request = fixture.AddRequest(userId: 1, status: RequestStatus.Approved);
         await fixture.Db.SaveChangesAsync();
 
-        var workflow = new RecoveryWorkflowService(fixture.Db, new FixedClock(FridayApproval));
+        var workflow = Workflow(fixture, FridayApproval);
         await workflow.OverrideStatusAsync(fixture.Item.Id, 3, ItemStatus.Active,
             "Devolução registrada por engano", default);
 
@@ -288,7 +339,7 @@ public sealed class RecoveryWorkflowTests
         previous.ExpiresAt = FridayApproval.AddSeconds(-1);
         await fixture.Db.SaveChangesAsync();
 
-        var workflow = new RecoveryWorkflowService(fixture.Db, new FixedClock(FridayApproval));
+        var workflow = Workflow(fixture, FridayApproval);
         var newRequestId = await workflow.CreateAsync(fixture.Item.Id, 2,
             "Reconheço este item.", default);
 

@@ -2,6 +2,7 @@ using FindIt.Api.Data;
 using FindIt.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.OpenApi;
@@ -16,6 +17,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddDataProtection().SetApplicationName("FindIt");
 var frontendOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 if (frontendOrigins.Length > 0)
 {
@@ -98,6 +100,7 @@ builder.Services.AddScoped<ItemQueryService>();
 builder.Services.AddScoped<RequestExpirationService>();
 builder.Services.AddHostedService<RequestExpirationWorker>();
 builder.Services.AddScoped<RecoveryWorkflowService>();
+builder.Services.AddSingleton<PickupCodeService>();
 builder.Services.AddScoped<ItemManagementService>();
 builder.Services.AddScoped<ItemPhotoService>();
 builder.Services.AddScoped<CurrentUserService>();

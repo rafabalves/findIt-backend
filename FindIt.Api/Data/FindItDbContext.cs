@@ -80,6 +80,7 @@ public sealed class FindItDbContext(DbContextOptions<FindItDbContext> options) :
             entity.HasIndex(x => new { x.Status, x.ExpiresAt });
             entity.Property(x => x.Justification).HasMaxLength(2000).IsRequired();
             entity.Property(x => x.AdminNotes).HasMaxLength(2000);
+            entity.Property(x => x.PickupCodeEncrypted).HasMaxLength(1000);
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             entity.HasOne(x => x.Item).WithMany(x => x.RecoveryRequests)
                 .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
