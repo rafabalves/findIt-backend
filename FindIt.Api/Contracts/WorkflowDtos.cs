@@ -1,4 +1,5 @@
 using FindIt.Api.Domain;
+using System.ComponentModel.DataAnnotations;
 
 namespace FindIt.Api.Contracts;
 
@@ -11,7 +12,7 @@ public sealed record RequestDto(
     string Justification, string? AdminNotes, DateTime? ExpiresAt,
     DateTime CreatedAt, DateTime UpdatedAt);
 public sealed record CreateItemDto(
-    int CategoryId, Guid? QRCodeGuid, string Name, string Description,
+    int CategoryId, [property: Required] Guid? QRCodeGuid, string Name, string Description,
     string Location, DateTime FoundOn);
 public sealed record UpdateItemDto(
     int CategoryId, string Name, string Description, string Location, DateTime FoundOn);

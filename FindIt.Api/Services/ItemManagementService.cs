@@ -20,27 +20,26 @@ public sealed class ItemManagementService(FindItDbContext db, TimeProvider clock
         int administratorId, NewItem input, CancellationToken cancellationToken)
     {
         ValidateItem(input.CategoryId, input.Name, input.Description, input.Location, input.FoundOn);
+        var guid = input.QRCodeGuid.GetValueOrDefault();
+        if (guid == Guid.Empty)
+            throw new ArgumentException("Selecione ou escaneie uma etiqueta QR para cadastrar o item.");
         await using var transaction = await db.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
         var administrator = await GetAdministratorAsync(administratorId, cancellationToken);
         await RequireCategoryAsync(input.CategoryId, cancellationToken);
 
-        QRCode? qrCode = null;
-        if (input.QRCodeGuid is Guid guid)
+        var qrCode = await db.QRCodes.SingleOrDefaultAsync(x => x.Guid == guid, cancellationToken)
+            ?? throw new KeyNotFoundException("Etiqueta QR não encontrada.");
+        if (await db.Items.AnyAsync(x => x.QRCodeId == qrCode.Id, cancellationToken))
         {
-            qrCode = await db.QRCodes.SingleOrDefaultAsync(x => x.Guid == guid, cancellationToken)
-                ?? throw new KeyNotFoundException("Etiqueta QR não encontrada.");
-            if (await db.Items.AnyAsync(x => x.QRCodeId == qrCode.Id, cancellationToken))
-            {
-                throw new BusinessConflictException("Esta etiqueta QR já está vinculada a um item.");
-            }
+            throw new BusinessConflictException("Esta etiqueta QR já está vinculada a um item.");
         }
 
         var now = clock.GetUtcNow().UtcDateTime;
         var item = new Item
         {
             CategoryId = input.CategoryId,
-            QRCodeId = qrCode?.Id,
+            QRCodeId = qrCode.Id,
             Name = input.Name.Trim(),
             Description = input.Description.Trim(),
             Location = input.Location.Trim(),

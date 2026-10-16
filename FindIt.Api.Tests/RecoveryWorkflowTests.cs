@@ -130,6 +130,19 @@ public sealed class RecoveryWorkflowTests
     }
 
     [Fact]
+    public async Task CreatingItemRequiresQrCode()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var items = new ItemManagementService(fixture.Db, new FixedClock(FridayApproval));
+        var input = new NewItem(fixture.Item.CategoryId, null, "Livro",
+            "Livro azul", "Biblioteca", FridayApproval);
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => items.CreateAsync(3, input, default));
+        Assert.Contains("etiqueta QR", error.Message);
+        Assert.Single(await fixture.Db.Items.ToListAsync());
+    }
+
+    [Fact]
     public async Task ReactivationDoesNotReopenOldApprovedRequest()
     {
         await using var fixture = await Fixture.CreateAsync();

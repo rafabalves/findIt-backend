@@ -92,6 +92,18 @@ public sealed class AdminItemsController(
             .ToListAsync(cancellationToken);
     }
 
+    [HttpGet("{id:int}/qr-code")]
+    public async Task<ActionResult<QRCodeDto>> QrCode(
+        int id, CancellationToken cancellationToken)
+    {
+        await RequireAdminAsync(cancellationToken);
+        var code = await db.Items.AsNoTracking()
+            .Where(x => x.Id == id && x.QRCode != null)
+            .Select(x => new QRCodeDto(x.QRCode!.Id, x.QRCode.Guid))
+            .SingleOrDefaultAsync(cancellationToken);
+        return code is null ? NotFound() : Ok(code);
+    }
+
     private async Task<User> RequireAdminAsync(CancellationToken cancellationToken)
     {
         var user = await currentUser.GetOrCreateAsync(User, cancellationToken);

@@ -124,6 +124,10 @@ Para editar apenas alguns dados de um item, use `PATCH /api/admin/items/{id}` e 
 
 ### Fotos dos itens
 
+Todo novo item precisa de uma etiqueta QR previamente gerada e ainda não vinculada. Informe `qrCodeGuid` em `POST /api/admin/items`; o backend rejeita o cadastro sem etiqueta. Itens antigos sem etiqueta permanecem no banco.
+
+Para reimpressão, `GET /api/admin/items/{id}/qr-code` retorna a etiqueta vinculada ao item para um administrador. Retorna 404 quando o item não tem etiqueta.
+
 O cadastro continua em duas etapas: `POST /api/admin/items` recebe JSON e retorna `{ "id": 42 }`; depois `PUT /api/admin/items/42/photos` recebe `multipart/form-data`, com até três partes chamadas `files`. A rota substitui todo o conjunto de fotos e também funciona na edição. Enviar um formulário multipart vazio remove todas as fotos. Apenas administradores podem alterar fotos. Os DTOs públicos de itens incluem `photos: [{ "id": 1 }]`, e cada imagem pode ser lida em `GET /api/items/{id}/photos/{photoId}`.
 
 Execute a migration `AddItemPhotos` antes de usar as novas rotas. Os arquivos ficam, por padrão, em `%LOCALAPPDATA%\FindIt\photos` no Windows, fora do repositório. Para o desenvolvimento local, configure `Photos:RootPath` em `FindIt.Api/appsettings.Development.json`; nesta máquina ele aponta para `C:\Users\Rafae\Desktop\FindIt-data\photos`, ao lado das pastas do backend e do frontend. A API cria a pasta no primeiro envio de fotos. Inclua essa pasta no backup junto com o MySQL. `Photos:MaxCount` e `Photos:MaxBytes` controlam os limites (padrões: 3 arquivos e 5 MB por arquivo). São aceitos JPEG, PNG e WebP. O navegador não recebe acesso direto à pasta. Uma futura melhoria é substituir o armazenamento em disco por um serviço de objetos na nuvem.
