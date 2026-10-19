@@ -4,6 +4,7 @@ obj/
 .tools/
 *.user
 appsettings.Development.json
+appsettings.Demo.json
 .env
 .env.*
 *.pfx

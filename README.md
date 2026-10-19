@@ -108,7 +108,18 @@ Este repositório contém somente a API; o login validado até agora usa o Swagg
 3. No frontend, use o ID do **FindIt Web**, a autoridade `https://login.microsoftonline.com/common` para testes e o fluxo de código de autorização com PKCE. Solicite um **token de acesso** para `api://a66cb6cf-367c-4568-b267-8e9f475a99bb/access_as_user` e envie `Authorization: Bearer <token>` às rotas protegidas da API. O token de ID não serve para chamar a API. Não coloque segredo de cliente no navegador.
 4. Aponte as requisições locais para `https://localhost:64529/api/...`. Teste primeiro `GET /api/me`, depois os fluxos de usuário e de administrador; as rotas administrativas dependem de `IsAdmin = 1` no banco.
 
-O perfil **FindIt.Api (contas Microsoft - teste)** aceita tokens de qualquer tenant Microsoft apenas em `Development`. O frontend hospedado em outro ambiente precisará de uma configuração de testes própria; não publique esse perfil como configuração de produção.
+O perfil **FindIt.Api (contas Microsoft - teste)** permanece para uso local com Swagger em `Development`. Para uma demonstração pública temporária, use o perfil **FindIt.Api (demonstração)**. Ele executa no ambiente `Demo`, escuta somente em `http://127.0.0.1:64530`, aceita as mesmas contas Microsoft de teste e não expõe o Swagger. A configuração de teste continua bloqueada no ambiente `Production` e exige `AzureAd:TenantId=common`.
+
+Antes de iniciar o perfil de demonstração, crie `FindIt.Api/appsettings.Demo.json` (ignorado pelo Git) com a pasta local de fotos e a origem exata do frontend publicado. Por exemplo:
+
+```json
+{
+  "Photos": { "RootPath": "C:/Users/Rafae/Desktop/FindIt-data/photos" },
+  "Cors": { "AllowedOrigins": ["https://SEU-PROJETO.pages.dev"] }
+}
+```
+
+O perfil `Demo` carrega as mesmas credenciais do MySQL guardadas no Secret Manager local. Mantenha o banco acessível apenas no computador. Depois de iniciar a API, o túnel deve apontar para `http://127.0.0.1:64530`; cadastre no Entra a URL HTTPS exata do frontend como URI SPA. Qualquer conta Microsoft capaz de consentir com o FindIt Web poderá entrar nesse modo de teste, mas somente usuários marcados como administradores no banco acessam as rotas administrativas. Use apenas dados descartáveis nessa demonstração.
 
 ## Execução e testes
 

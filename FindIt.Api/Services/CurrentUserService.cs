@@ -89,9 +89,6 @@ public sealed class CurrentUserService(
 
     private bool IsAllowedEmail(string email, Guid tenantId) =>
         (tenantId == UemgTenantId && IsInstitutionalEmail(email))
-        || (environment.IsDevelopment()
-            && configuration.GetValue<bool>("FindItAuth:AllowAnyMicrosoftAccountForTesting")
-            && string.Equals(configuration["AzureAd:TenantId"], "common",
-                StringComparison.OrdinalIgnoreCase)
+        || (FindItAuthMode.AllowsAnyMicrosoftAccountForTesting(configuration, environment)
             && email.Contains('@'));
 }

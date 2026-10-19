@@ -9,6 +9,11 @@ using Microsoft.OpenApi;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsEnvironment("Demo"))
+{
+    // A demonstração usa o mesmo banco local sem incluir credenciais em arquivos publicados.
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
@@ -28,13 +33,14 @@ var authentication = builder.Services.AddAuthentication(JwtBearerDefaults.Authen
 var configuredTenantId = builder.Configuration["AzureAd:TenantId"];
 var configuredApiClientId = builder.Configuration["AzureAd:ClientId"];
 var uemgTenantId = Guid.Parse("e298359b-9b54-45c0-9bb7-690913b34cf8");
-var allowAnyMicrosoftTenantForTesting = builder.Configuration.GetValue<bool>(
+var testModeRequested = builder.Configuration.GetValue<bool>(
     "FindItAuth:AllowAnyMicrosoftAccountForTesting");
-if (allowAnyMicrosoftTenantForTesting && (!builder.Environment.IsDevelopment()
-    || !string.Equals(configuredTenantId, "common", StringComparison.OrdinalIgnoreCase)))
+var allowAnyMicrosoftTenantForTesting = FindItAuthMode.AllowsAnyMicrosoftAccountForTesting(
+    builder.Configuration, builder.Environment);
+if (testModeRequested && !allowAnyMicrosoftTenantForTesting)
 {
     throw new InvalidOperationException(
-        "O teste com qualquer conta Microsoft exige Development e AzureAd:TenantId=common.");
+        "O teste com qualquer conta Microsoft exige Development ou Demo e AzureAd:TenantId=common.");
 }
 var tenantIsConfigured = allowAnyMicrosoftTenantForTesting
     || Guid.TryParse(configuredTenantId, out var institutionalTenantId)

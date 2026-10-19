@@ -250,7 +250,7 @@ public sealed class RecoveryWorkflowTests
     }
 
     [Fact]
-    public async Task AnyMicrosoftAccountRequiresDevelopmentTestMode()
+    public async Task AnyMicrosoftAccountRequiresDevelopmentOrDemoTestMode()
     {
         await using var fixture = await Fixture.CreateAsync();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(
@@ -267,6 +267,12 @@ public sealed class RecoveryWorkflowTests
             new TestHostEnvironment { EnvironmentName = Environments.Development });
         var user = await developmentService.GetOrCreateAsync(personal, default);
         Assert.Equal("pessoa@outlook.com", user.Email);
+
+        var demoService = new CurrentUserService(fixture.Db,
+            new FixedClock(FridayApproval), configuration,
+            new TestHostEnvironment { EnvironmentName = "Demo" });
+        var demoUser = await demoService.GetOrCreateAsync(personal, default);
+        Assert.Equal(user.Id, demoUser.Id);
 
         var productionService = new CurrentUserService(fixture.Db,
             new FixedClock(FridayApproval), configuration, new TestHostEnvironment());
