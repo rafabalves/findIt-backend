@@ -185,8 +185,12 @@ public sealed class RecoveryWorkflowService(
             throw new BusinessConflictException("Esta solicitação não possui retirada aprovada e válida.");
         }
 
-        // Solicitações aprovadas antes da inclusão do código recebem um ao serem consultadas.
-        request.PickupCodeEncrypted ??= pickupCodes.Protect(pickupCodes.Generate());
+        // Solicitações antigas recebem o formato atual na próxima consulta do solicitante.
+        if (request.PickupCodeEncrypted is null
+            || pickupCodes.Unprotect(request.PickupCodeEncrypted).Length != 4)
+        {
+            request.PickupCodeEncrypted = pickupCodes.Protect(pickupCodes.Generate());
+        }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return pickupCodes.Unprotect(request.PickupCodeEncrypted);

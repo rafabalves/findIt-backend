@@ -117,7 +117,7 @@ public sealed class RecoveryWorkflowTests
         await workflow.ApproveAsync(request.Id, 3, null, default);
 
         var code = await workflow.GetPickupCodeAsync(request.Id, 1, default);
-        Assert.Equal(10, code.Length);
+        Assert.Equal(4, code.Length);
         Assert.Equal(code, await workflow.GetPickupCodeAsync(request.Id, 1, default));
         Assert.NotEqual(code, request.PickupCodeEncrypted);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
@@ -145,6 +145,26 @@ public sealed class RecoveryWorkflowTests
         Assert.Equal(FridayApproval.AddMinutes(15), request.PickupCodeLockedUntil);
         await Assert.ThrowsAsync<BusinessConflictException>(() =>
             workflow.ReturnAsync(fixture.Item.Id, 3, code, default));
+    }
+
+    [Fact]
+    public async Task PreviouslyApprovedLongCodeIsReplacedWhenOwnerConsultsIt()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = fixture.AddRequest(userId: 1, status: RequestStatus.Approved);
+        request.ExpiresAt = FridayApproval.AddDays(1);
+        request.PickupCodeEncrypted = TestCodes.Protect("ABCDEFGH23");
+        await fixture.Db.SaveChangesAsync();
+        var workflow = Workflow(fixture, FridayApproval);
+
+        var code = await workflow.GetPickupCodeAsync(request.Id, 1, default);
+
+        Assert.Equal(4, code.Length);
+        Assert.Equal(code, await workflow.GetPickupCodeAsync(request.Id, 1, default));
+        await Assert.ThrowsAsync<BusinessConflictException>(() =>
+            workflow.ReturnAsync(fixture.Item.Id, 3, "ABCDEFGH23", default));
+        await workflow.ReturnAsync(fixture.Item.Id, 3, code, default);
+        Assert.Equal(ItemStatus.Returned, fixture.Item.Status);
     }
 
     [Fact]
